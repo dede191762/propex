@@ -559,4 +559,4 @@ export default function Home() {
     </div>
   )
 }
-Yapıştırınca Ctrl+S kaydet, kapat, söyle!
+
