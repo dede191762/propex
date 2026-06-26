@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export default function Home() {
@@ -12,6 +12,9 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<string|null>(null)
   const [form, setForm] = useState<any>({})
+  const [galeriMulk, setGaleriMulk] = useState<any>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const NAVY = '#0f1428'
   const GOLD = '#c9a84c'
@@ -36,101 +39,89 @@ export default function Home() {
     setLoading(false)
   }
 
-  // MUSTERI
   async function musteriKaydet() {
     if (!form.ad) return alert('Ad zorunlu')
-    if (form.id) {
-      await supabase.from('musteriler').update(form).eq('id', form.id)
-    } else {
-      await supabase.from('musteriler').insert(form)
-    }
-    setModal(null)
-    loadAll()
+    if (form.id) { await supabase.from('musteriler').update(form).eq('id', form.id) }
+    else { await supabase.from('musteriler').insert(form) }
+    setModal(null); loadAll()
   }
   async function musteriSil(id: string) {
     if (!confirm('Silinsin mi?')) return
-    await supabase.from('musteriler').delete().eq('id', id)
-    loadAll()
+    await supabase.from('musteriler').delete().eq('id', id); loadAll()
   }
 
-  // MULK
   async function mulkKaydet() {
     if (!form.baslik) return alert('Başlık zorunlu')
-    if (form.id) {
-      await supabase.from('mulkler').update(form).eq('id', form.id)
-    } else {
-      await supabase.from('mulkler').insert({ ...form, fotograflar: [], belgeler: [] })
-    }
-    setModal(null)
-    loadAll()
+    if (form.id) { await supabase.from('mulkler').update(form).eq('id', form.id) }
+    else { await supabase.from('mulkler').insert({ ...form, fotograflar: [], belgeler: [] }) }
+    setModal(null); loadAll()
   }
   async function mulkSil(id: string) {
     if (!confirm('Silinsin mi?')) return
-    await supabase.from('mulkler').delete().eq('id', id)
+    await supabase.from('mulkler').delete().eq('id', id); loadAll()
+  }
+
+  async function fotografYukle(mulkId: string, file: File) {
+    setUploading(true)
+    const ext = file.name.split('.').pop()
+    const path = `${mulkId}/${Date.now()}.${ext}`
+    const { error } = await supabase.storage.from('mulk-fotograflari').upload(path, file)
+    if (error) { alert('Yükleme hatası: ' + error.message); setUploading(false); return }
+    const { data } = supabase.storage.from('mulk-fotograflari').getPublicUrl(path)
+    const mulk = mulkler.find(m => m.id === mulkId)
+    const mevcutFotolar = mulk?.fotograflar || []
+    await supabase.from('mulkler').update({ fotograflar: [...mevcutFotolar, { url: data.publicUrl, path }] }).eq('id', mulkId)
+    setUploading(false); loadAll()
+  }
+
+  async function fotografSil(mulkId: string, foto: any) {
+    await supabase.storage.from('mulk-fotograflari').remove([foto.path])
+    const mulk = mulkler.find(m => m.id === mulkId)
+    const yeniFotolar = (mulk?.fotograflar || []).filter((f: any) => f.path !== foto.path)
+    await supabase.from('mulkler').update({ fotograflar: yeniFotolar }).eq('id', mulkId)
     loadAll()
   }
 
-  // GORUSME
   async function gorusmeKaydet() {
     if (!form.konu) return alert('Konu zorunlu')
-    if (form.id) {
-      await supabase.from('gorusmeler').update(form).eq('id', form.id)
-    } else {
-      await supabase.from('gorusmeler').insert(form)
-    }
-    setModal(null)
-    loadAll()
+    if (form.id) { await supabase.from('gorusmeler').update(form).eq('id', form.id) }
+    else { await supabase.from('gorusmeler').insert(form) }
+    setModal(null); loadAll()
   }
   async function gorusmeSil(id: string) {
     if (!confirm('Silinsin mi?')) return
-    await supabase.from('gorusmeler').delete().eq('id', id)
-    loadAll()
+    await supabase.from('gorusmeler').delete().eq('id', id); loadAll()
   }
   async function gorusmeToggle(id: string, val: boolean) {
-    await supabase.from('gorusmeler').update({ tamamlandi: !val }).eq('id', id)
-    loadAll()
+    await supabase.from('gorusmeler').update({ tamamlandi: !val }).eq('id', id); loadAll()
   }
 
-  // KOMISYON
   async function komisyonKaydet() {
     if (!form.tutar) return alert('Tutar zorunlu')
-    if (form.id) {
-      await supabase.from('komisyonlar').update(form).eq('id', form.id)
-    } else {
-      await supabase.from('komisyonlar').insert(form)
-    }
-    setModal(null)
-    loadAll()
+    if (form.id) { await supabase.from('komisyonlar').update(form).eq('id', form.id) }
+    else { await supabase.from('komisyonlar').insert(form) }
+    setModal(null); loadAll()
   }
   async function komisyonSil(id: string) {
     if (!confirm('Silinsin mi?')) return
-    await supabase.from('komisyonlar').delete().eq('id', id)
-    loadAll()
+    await supabase.from('komisyonlar').delete().eq('id', id); loadAll()
   }
   async function komisyonToggle(id: string, val: boolean) {
-    await supabase.from('komisyonlar').update({ odendi: !val }).eq('id', id)
-    loadAll()
+    await supabase.from('komisyonlar').update({ odendi: !val }).eq('id', id); loadAll()
   }
 
-  // HATIRLATICI
   async function hatirlaticiKaydet() {
     if (!form.baslik) return alert('Başlık zorunlu')
-    if (form.id) {
-      await supabase.from('hatirlaticilar').update(form).eq('id', form.id)
-    } else {
-      await supabase.from('hatirlaticilar').insert(form)
-    }
-    setModal(null)
-    loadAll()
+    if (form.id) { await supabase.from('hatirlaticilar').update(form).eq('id', form.id) }
+    else { await supabase.from('hatirlaticilar').insert(form) }
+    setModal(null); loadAll()
   }
   async function hatirlaticiSil(id: string) {
     if (!confirm('Silinsin mi?')) return
-    await supabase.from('hatirlaticilar').delete().eq('id', id)
-    loadAll()
+    await supabase.from('hatirlaticilar').delete().eq('id', id); loadAll()
   }
   async function hatirlaticiToggle(id: string, val: boolean) {
-    await supabase.from('hatirlaticilar').update({ tamamlandi: !val }).eq('id', id)
-    loadAll()
+    await supabase.from('hatirlaticilar').update({ tamamlandi: !val }).eq('id', id); loadAll()
   }
 
   const inp: any = { width: '100%', padding: '9px 12px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 14, marginBottom: 12, boxSizing: 'border-box', fontFamily: 'inherit' }
@@ -149,7 +140,7 @@ export default function Home() {
 
   const Modal = ({ title, children, onClose }: any) => (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto', padding: 24 }}>
+      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', padding: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
           <h3 style={{ margin: 0, color: NAVY }}>{title}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>✕</button>
@@ -177,8 +168,7 @@ export default function Home() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f1f5f9', fontFamily: "'Inter','Segoe UI',sans-serif" }}>
-      {/* SIDEBAR */}
-      <aside style={{ width: 210, background: NAVY, padding: '24px 10px', position: 'fixed', top: 0, left: 0, height: '100vh' }}>
+      <aside style={{ width: 210, background: NAVY, padding: '24px 10px', position: 'fixed', top: 0, left: 0, height: '100vh', overflowY: 'auto' }}>
         <div style={{ marginBottom: 28, paddingLeft: 8 }}>
           <div style={{ color: GOLD, fontWeight: 800, fontSize: 20, fontFamily: 'Georgia,serif' }}>Propex</div>
           <div style={{ color: '#475569', fontSize: 11 }}>Emlak Yönetim Paneli</div>
@@ -195,10 +185,8 @@ export default function Home() {
         ))}
       </aside>
 
-      {/* MAIN */}
       <main style={{ marginLeft: 210, flex: 1, padding: 28 }}>
 
-        {/* DASHBOARD */}
         {tab === 'dashboard' && (
           <div>
             <h2 style={{ color: NAVY, marginBottom: 20 }}>Genel Bakış</h2>
@@ -233,6 +221,7 @@ export default function Home() {
                     </div>
                   )
                 })}
+                {stats.bekleyenGor === 0 && <p style={{ color: SLATE, fontSize: 13 }}>Bekleyen yok 🎉</p>}
               </div>
               <div style={{ background: '#fff', borderRadius: 14, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
                 <h4 style={{ margin: '0 0 12px', color: NAVY }}>Yaklaşan Hatırlatıcılar</h4>
@@ -245,17 +234,17 @@ export default function Home() {
                     <span style={{ fontSize: 11, fontWeight: 600, color: h.oncelik === 'Yüksek' ? '#be123c' : h.oncelik === 'Orta' ? '#854d0e' : '#166534' }}>{h.oncelik}</span>
                   </div>
                 ))}
+                {stats.bekleyenHat === 0 && <p style={{ color: SLATE, fontSize: 13 }}>Hatırlatıcı yok 🎉</p>}
               </div>
             </div>
           </div>
         )}
 
-        {/* MÜŞTERİLER */}
         {tab === 'musteriler' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <h2 style={{ margin: 0, color: NAVY }}>Müşteriler</h2>
-              <button style={btnP} onClick={() => { setForm({ tip: 'Alıcı', durum: 'Aktif', etiketler: [] }); setModal('musteri') }}>+ Yeni Müşteri</button>
+              <button style={btnP} onClick={() => { setForm({ tip: 'Alıcı', durum: 'Aktif' }); setModal('musteri') }}>+ Yeni Müşteri</button>
             </div>
             <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -287,7 +276,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* MÜLKLER */}
         {tab === 'mulkler' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -295,29 +283,42 @@ export default function Home() {
               <button style={btnP} onClick={() => { setForm({ tip: 'Daire', islem: 'Satılık', durum: 'Aktif' }); setModal('mulk') }}>+ Yeni Mülk</button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
-              {mulkler.map(m => (
-                <div key={m.id} style={{ background: '#fff', borderRadius: 14, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `3px solid ${m.durum === 'Aktif' ? GOLD : '#cbd5e1'}` }}>
-                  <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 6 }}>{m.baslik}</div>
-                  <div style={{ fontSize: 12, color: SLATE, marginBottom: 10 }}>{m.konum}</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: NAVY, fontFamily: 'Georgia,serif' }}>{Number(m.fiyat || 0).toLocaleString('tr-TR')} ₺</div>
-                  <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                    <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{m.islem}</span>
-                    <span style={{ background: '#f8fafc', color: SLATE, padding: '2px 8px', borderRadius: 20, fontSize: 11 }}>{m.tip}</span>
-                    {m.m2 && <span style={{ background: '#f8fafc', color: SLATE, padding: '2px 8px', borderRadius: 20, fontSize: 11 }}>{m.m2} m²</span>}
+              {mulkler.map(m => {
+                const fotolar = m.fotograflar || []
+                return (
+                  <div key={m.id} style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `3px solid ${m.durum === 'Aktif' ? GOLD : '#cbd5e1'}` }}>
+                    {fotolar.length > 0 && (
+                      <img src={fotolar[0].url} alt="" style={{ width: '100%', height: 160, objectFit: 'cover' }} />
+                    )}
+                    {fotolar.length === 0 && (
+                      <div style={{ width: '100%', height: 100, background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: SLATE, fontSize: 13 }}>
+                        📷 Fotoğraf yok
+                      </div>
+                    )}
+                    <div style={{ padding: 18 }}>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 4 }}>{m.baslik}</div>
+                      <div style={{ fontSize: 12, color: SLATE, marginBottom: 8 }}>{m.konum}</div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: NAVY, fontFamily: 'Georgia,serif', marginBottom: 8 }}>{Number(m.fiyat || 0).toLocaleString('tr-TR')} ₺</div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                        <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{m.islem}</span>
+                        <span style={{ background: '#f8fafc', color: SLATE, padding: '2px 8px', borderRadius: 20, fontSize: 11 }}>{m.tip}</span>
+                        {m.m2 && <span style={{ background: '#f8fafc', color: SLATE, padding: '2px 8px', borderRadius: 20, fontSize: 11 }}>{m.m2} m²</span>}
+                      </div>
+                      {m.notlar && <div style={{ fontSize: 12, color: SLATE, marginBottom: 10, padding: '6px 10px', background: '#f8fafc', borderRadius: 7 }}>{m.notlar}</div>}
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button style={btnS} onClick={() => { setForm({ ...m }); setModal('mulk') }}>Düzenle</button>
+                        <button style={{ ...btnS, color: '#7e22ce', borderColor: '#e9d5ff' }} onClick={() => { setGaleriMulk(m); setModal('galeri') }}>📷 Fotoğraflar {fotolar.length > 0 ? `(${fotolar.length})` : ''}</button>
+                        <button style={btnD} onClick={() => mulkSil(m.id)}>Sil</button>
+                      </div>
+                    </div>
                   </div>
-                  {m.notlar && <div style={{ fontSize: 12, color: SLATE, marginTop: 8, padding: '6px 10px', background: '#f8fafc', borderRadius: 7 }}>{m.notlar}</div>}
-                  <div style={{ marginTop: 14 }}>
-                    <button style={btnS} onClick={() => { setForm({ ...m }); setModal('mulk') }}>Düzenle</button>
-                    <button style={btnD} onClick={() => mulkSil(m.id)}>Sil</button>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
             {mulkler.length === 0 && <p style={{ textAlign: 'center', color: SLATE, padding: 32 }}>Henüz mülk yok.</p>}
           </div>
         )}
 
-        {/* GÖRÜŞMELER */}
         {tab === 'gorusmeler' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -350,7 +351,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* KOMİSYONLAR */}
         {tab === 'komisyonlar' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -406,7 +406,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* HATIRLATICILAR */}
         {tab === 'hatirlatici' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -437,7 +436,6 @@ export default function Home() {
         )}
       </main>
 
-      {/* MODALLER */}
       {modal === 'musteri' && (
         <Modal title={form.id ? 'Müşteriyi Düzenle' : 'Yeni Müşteri'} onClose={() => setModal(null)}>
           <input style={inp} placeholder="Ad Soyad *" value={form.ad || ''} onChange={e => setForm({ ...form, ad: e.target.value })} />
@@ -475,6 +473,33 @@ export default function Home() {
           </select>
           <textarea style={{ ...inp, minHeight: 70, resize: 'vertical' }} placeholder="Notlar" value={form.notlar || ''} onChange={e => setForm({ ...form, notlar: e.target.value })} />
           <button style={{ ...btnP, width: '100%' }} onClick={mulkKaydet}>Kaydet</button>
+        </Modal>
+      )}
+
+      {modal === 'galeri' && galeriMulk && (
+        <Modal title={`📷 Fotoğraflar — ${galeriMulk.baslik}`} onClose={() => { setModal(null); setGaleriMulk(null) }}>
+          <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
+            onChange={async e => {
+              const files = Array.from(e.target.files || [])
+              for (const file of files) { await fotografYukle(galeriMulk.id, file) }
+              loadAll()
+            }}
+          />
+          <button style={{ ...btnP, width: '100%', marginBottom: 16, justifyContent: 'center' }}
+            onClick={() => fileRef.current?.click()} disabled={uploading}>
+            {uploading ? '⏳ Yükleniyor...' : '📁 Bilgisayardan Fotoğraf Seç'}
+          </button>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+            {(mulkler.find(m => m.id === galeriMulk.id)?.fotograflar || []).map((f: any, i: number) => (
+              <div key={i} style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', aspectRatio: '4/3' }}>
+                <img src={f.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <button onClick={() => fotografSil(galeriMulk.id, f)}
+                  style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(220,38,38,0.9)', border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer', padding: '3px 8px', fontSize: 12, fontWeight: 700 }}>✕</button>
+              </div>
+            ))}
+          </div>
+          {(mulkler.find(m => m.id === galeriMulk.id)?.fotograflar || []).length === 0 &&
+            <p style={{ textAlign: 'center', color: SLATE, fontSize: 13, marginTop: 16 }}>Henüz fotoğraf yok. Yukarıdan ekle!</p>}
         </Modal>
       )}
 
@@ -534,3 +559,4 @@ export default function Home() {
     </div>
   )
 }
+Yapıştırınca Ctrl+S kaydet, kapat, söyle!
